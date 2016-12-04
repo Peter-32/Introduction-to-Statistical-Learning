@@ -34,6 +34,8 @@ printDiagnosticTable2Class <- function(response,pred) {
   print(diagnosticTable[1,2]/(diagnosticTable[1,1]+diagnosticTable[1,2]))
   print("True Pos. Rate:")
   print(diagnosticTable[2,2]/(diagnosticTable[2,1]+diagnosticTable[2,2]))
+  print("Pos. Pred. Value:")
+  print(diagnosticTable[2,2]/(diagnosticTable[1,2]+diagnosticTable[2,2]))
   print("Accuracy Rate:")
   print((diagnosticTable[1,1]+diagnosticTable[2,2])/sum(diagnosticTable))
 }
@@ -83,6 +85,62 @@ length(Direction.2005[lda.pred$posterior[,2]>.60])
 # lda.pred gives the prediction with 50% rule, probabilities, and the computation of the
 # coefficients multiplied by the predictors added together.  If above 0 then predict positive class for 2 class.
 # In multi-class, the Bayes classifier assigns an observation to the class in which the equation is the largest.
+sum(lda.pred$posterior[,1]>.9)
 
+## Quadratic Discriminant Analysis
+# implemented identical to lda in R
+qda.fit=qda(Direction~Lag1+Lag2,data=Smarket,subset=train)
+qda.fit
+# predict works the same as lda
+qda.class=predict(qda.fit, Smarket.2005)$class
+table(Direction.2005,qda.class)
+mean(qda.class==Direction.2005)
 
-  
+## K-Nearest Neighbors
+# Four inputs required for knn()
+# train and test x, train response, and K
+library(class)
+train.X=cbind(Lag1,Lag2)[train,]
+test.X=cbind(Lag1,Lag2)[!train,]
+train.Direction=Direction[train]
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Direction,k=3)
+printDiagnosticTable2Class(Direction.2005,knn.pred)
+
+## Caravan Insurance Example
+# 6% of pople purchased caravan insurance
+dim(Caravan)
+attach(Caravan)
+summary(Purchase)
+348/5822
+standardized.X=scale(Caravan[,-86])
+var(Caravan[,1])
+var(Caravan[,2])
+var(standardized.X[,1])
+var(standardized.X[,2])
+# split into training and test sets
+test=1:1000
+train.X=standardized.X[-test,]
+test.X=standardized.X[test,]
+train.Y=Purchase[-test]
+test.Y=Purchase[test]
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Y,k=1)
+mean(test.Y!=knn.pred)
+mean(test.Y!="No")
+knn.pred2=knn(train.X,test.X,train.Y,k=3)
+knn.pred3=knn(train.X,test.X,train.Y,k=5)
+# Diagnostic tabs
+printDiagnosticTable2Class(test.Y,knn.pred)
+printDiagnosticTable2Class(test.Y,knn.pred2)
+printDiagnosticTable2Class(test.Y,knn.pred3)
+
+## Using Logistic Regression on the Caravan Dataset
+glm.fit=glm(Purchase~.,data=Caravan,family=binomial,subset=-test)
+glm.probs=predict(glm.fit,Caravan[test,],type="response")
+glm.pred=rep("No",1000)
+glm.pred[glm.probs>.5]="Yes"
+printDiagnosticTable2Class(test.Y,glm.pred)
+glm.pred2=rep("No",1000)
+glm.pred2[glm.probs>.25]="Yes"
+printDiagnosticTable2Class(test.Y,glm.pred2)
