@@ -1,6 +1,7 @@
 ## Setup
 setwd("/Users/peterjmyers/Documents/Personal/Data Science/Machine Learning/ISL/R Labs")
 getwd()
+source("file.r") # runs r file
 rm(list=ls()) # Remove all variables
 rm(x,y) # Remove x and y variables
 ls() # List the variables
