@@ -111,6 +111,7 @@ coef(reg.best,11)
 # glmnet package can perform ridge regression and lasso.  glmnet() is the main function in the package
 # glmnet is also good in that it converts qualitative variables into dummy variables (also input must be numeric or these dummy qualitative values)
 # install.packages("glmnet")
+# MSE with one set
 library(glmnet)
 dim(Hitters)
 Hitters=na.omit(Hitters)
@@ -132,4 +133,87 @@ sqrt(sum(coef(ridge.mod)[-1,50]^2))
 ridge.mod$lambda[60]
 coef(ridge.mod)[,60]
 sqrt(sum(coef(ridge.mod)[-1,60]^2))
+predict(ridge.mod,s=50,type="coefficients")[1:20,] # gets coefficients
 
+set.seed(1)
+train=sample(1:nrow(x), nrow(x)/2) # random sample w/o replacement
+test=(-train)
+y.test=y[test]
+# predicting MSE on a test set
+# get coef w/ x, y, ridge regression, grid, and thresh.
+ridge.mod=glmnet(x[train,],y[train],alpha=0,lambda=grid,thresh=1e-12)
+ridge.pred=predict(ridge.mod,s=4,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+mean((mean(y[train])-y.test)^2) # MSE if we predict mean y of training set
+# We could get a similar MSE with a large lambda value (part of penalty term)
+ridge.pred=predict(ridge.mod,s=1e10,newx=x[test,]) # predicts test set values
+mean((ridge.pred-y.test)^2)
+# Recall that least squares is simply ridge regression with lambda = 0
+ridge.pred=predict(ridge.mod,s=0,newx=x[test,],exact=T)
+mean((ridge.pred-y.test)^2)
+lm(y~x, subset=train)
+predict(ridge.mod,s=0,exact=T,type="coefficients")[1:20,]
+
+# It's better to use CV to choose lambda; cv.glmnet() is built in to do this.
+# by default 10 folds are used
+set.seed(1)
+cv.out=cv.glmnet(x[train,],y[train],alpha=0)  ## Very good as quick Cross Validation!
+plot(cv.out)
+bestlam=cv.out$lambda.min
+bestlam
+ridge.pred=predict(ridge.mod,s=bestlam,newx=x[test,])
+mean((ridge.pred-y.test)^2)
+out=glmnet(x,y,alpha=0)
+predict(out,type="coefficients",s=bestlam)[1:20,]
+
+## The Lasso
+# we use alpha=1 for lasso
+lasso.mod=glmnet(x[train,],y[train],alpha=1,lambda=grid)
+plot(lasso.mod)
+# We now use CV
+set.seed(1)
+cv.out=cv.glmnet(x[train,],y[train],alpha=1)
+plot(cv.out)
+bestlam=cv.out$lambda.min
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test,])
+mean((lasso.pred-y.test)^2)
+# 12 of the 19 coefficients are set to zero.
+out=glmnet(x,y,alpha=1,lambda=grid)
+lasso.coef=predict(out,type="coefficients",s=bestlam)[1:20,]
+lasso.coef
+
+## PCR
+# uses pcr() function; pls library.  We use PCR to predict Salary
+# be sure to remove the missing values
+library(pls)
+set.seed(2)
+pcr.fit=pcr(Salary~., data=Hitters,scale=TRUE,validation="CV")
+# pcr() function is similar to lm()
+# scale=TRUE standardizes with xi <- xi / sqrt(distance from the mean)
+# validation="CV" causes pcr() to compute the ten-fold CV error
+summary(pcr.fit)
+# we can visualize this with a plot
+validationplot(pcr.fit,val.type="MSEP") # MSEP is CV MSE
+
+set.seed(1)
+pcr.fit=pcr(Salary~.,data=Hitters,subset=train,scale=TRUE,validation="CV")
+validationplot(pcr.fit,val.type="MSEP")
+pcr.pred=predict(pcr.fit,x[test,],ncomp=7)
+mean((pcr.pred-y.test)^2)
+# This is competitive with ridge regression and lasso
+# It is less interpretable because we don't have coefficients or variable selection with PCR
+pcr.fit=pcr(y~x,scale=TRUE,ncomp=7)
+summary(pcr.fit)
+
+## Partial Least Squares (PLS) Regression
+# plsr() of pls library
+set.seed(1)
+pls.fit=plsr(Salary~.,data=Hitters,subset=train,scale=TRUE,validation="CV")
+summary(pls.fit)
+validationplot(pls.fit,val.type="MSEP")
+pls.pred=predict(pls.fit,x[test,],ncomp=2)
+mean((pls.pred-y.test)^2)
+
+pls.fit=plsr(Salary~.,data=Hitters,scale=TRUE,ncomp=2)
+summary(pls.fit)
+# PLS is a supervised alternative to PCR
